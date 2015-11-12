@@ -9,6 +9,42 @@ import (
 	"log"
 )
 
+// Start of response structures //
+type Error struct {
+    code int
+    message string
+}
+
+type ResponseBody struct {
+}
+
+type Response struct {
+    statusCode int
+    error Error
+    body string
+}
+
+func (resp *Response) setError(errorCode int, message string) {
+    error := Error{code: errorCode, message: message}
+    resp.error = error
+    resp.statusCode = http.StatusBadRequest
+}
+
+func (resp *Response) setResponse(body string) {
+    resp.body = body
+    resp.statusCode = 200
+}
+
+func (resp *Response) send(w http.ResponseWriter) {
+    if resp.error.code != 0 {
+        http.Error(w, resp.error.message, resp.statusCode)
+    }
+    
+	io.WriteString(w, resp.body)
+}
+// End of response structures //
+
+// Start of app config //
 type Config struct {
     port string
 }
@@ -23,23 +59,33 @@ func SetupConfig() {
     
     config = Config{port: port}
 }
+// End of app config //
 
-// hello world, the web server
-func HelloServer(w http.ResponseWriter, req *http.Request) {
-    fmt.Printf("%+v\n", w)
-    fmt.Printf("%+v\n", req)
-	io.WriteString(w, "hello, world!\n")
+// Simple ping for health check
+func HandlePing(w http.ResponseWriter, req *http.Request) {
+    resp := new(Response)
+    resp.setResponse("Ping!")
+    resp.send(w)
 }
 
-func AvailableImages(w http.ResponseWriter, req *http.Request) {
+func HandleImg(w http.ResponseWriter, req *http.Request) {
+	resp := new(Response)
+    resp.setError(1000, "Nothing available yet!")
+    resp.send(w)
+}
+
+func HandleRoot(w http.ResponseWriter, req *http.Request) {
 	io.WriteString(w, "Nothing available yet!\n")
 }
 
 func main() {
     SetupConfig()
     
-	http.HandleFunc("/hello", HelloServer)
-	//http.HandleFunc("/", AvailableImages)
+	http.HandleFunc("/ping", HandlePing)
+	http.HandleFunc("/img", HandleImg)
+	http.HandleFunc("/", HandleRoot)
+    
+    // Set up the port based on the flag passed in when invoking this app
     fmt.Printf("%+v\n", config)
 	log.Printf("About to listen on http://127.0.0.1:" + config.port + "/")
 	err := http.ListenAndServe(":" + config.port, nil)
